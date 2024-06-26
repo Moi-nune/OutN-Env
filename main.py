@@ -1,20 +1,20 @@
-import configparser
 import sys
-import keep_alive
 import os
+from PIL import Image
+from tensorflow.keras.models import load_model
+import aiohttp
+import numpy as np
+import asyncio
+import json
+from io import BytesIO
+import keep_alive
 
 import discord
 from discord.ext import commands
 
-sys.path.append('lib')
-from TheOutNModule import outnmodule
-import hint_helper
-import catch_helper
-
-version = 'v7.1'
+version = 'custom'
 
 TKN = os.environ['token']
-clogconfirm = os.environ['clogconfirm']
 
 #bot setup
 intents = discord.Intents.all()
@@ -23,6 +23,10 @@ intents.members = True
 bot = commands.Bot(command_prefix='on.', intents=intents)
 bot.remove_command('help')
 
+loaded_model = load_model('model.h5', compile=False)
+
+with open('classes.json', 'r') as f:
+  classes = json.load(f)
 
 @bot.event
 async def on_ready():
@@ -38,25 +42,34 @@ async def on_ready():
   await bot.change_presence(status=discord.Status.online, activity=discord.Game("Pokémon"))
 
 
+
 @bot.event
 async def on_message(message):
-  if message.author.id == 716390085896962058:
-    if len(message.embeds) > 0:
-      embed = message.embeds[0]
-      if "appeared!" in embed.title and embed.image:
-        url = embed.image.url
-        await outnmodule(bot, message, url)
+  if message.author.id == 716390085896962058 and len(message.embeds) > 0:
+    embed = message.embeds[0]
+    if "appeared!" in embed.title and embed.image:
+      url = embed.image.url
+      async with aiohttp.ClientSession() as session:
+        async with session.get(url=url) as resp:
+          if resp.status == 200:
+            content = await resp.read()
+            image_data = BytesIO(content)
+            image = Image.open(image_data)
+      preprocessed_image = await preprocess_image(image)
+      predictions = loaded_model.predict(preprocessed_image)
+      classes_x = np.argmax(predictions, axis=1)
+      name = list(classes.keys())[classes_x[0]]
+      await message.channel.send(f"__**{name}**__ Spawned | catch using:")
+      await message.channel.send(f"<@716390085896962058> c {name}")
 
-    elif 'The pokémon is ' in message.content:
-      for i in hint_helper.solve(message.content):
-        await hint_helper.hint_embed(i, message)
 
-    elif 'Congratulations' in message.content and clogconfirm in 'Yy':
-      await catch_helper.catch_identifier(bot, message)
+async def preprocess_image(image):
+  image = image.resize((64, 64))
+  image = np.array(image)
+  image = image / 255.0
+  image = np.expand_dims(image, axis=0)
+  return image
 
-  elif 'The pokémon is ' in message.content:
-    for i in hint_helper.solve(message.content):
-      await hint_helper.hint_embed(i, message)
 
 keep_alive.keep_alive()
 bot.run(TKN)
