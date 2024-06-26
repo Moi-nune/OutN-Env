@@ -70,4 +70,5 @@ async def preprocess_image(image):
   image = np.expand_dims(image, axis=0)
   return image
 
+keep_alive.keep_alive()
 bot.run(TKN)
