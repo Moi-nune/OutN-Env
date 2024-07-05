@@ -3,3 +3,4 @@ discord
 numpy
 pillow
 tensorflow
+flask
