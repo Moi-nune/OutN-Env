@@ -1,7 +1,7 @@
 import sys
 import discord
 from discord.ext import commands
-
+import keep_alive
 sys.path.append('lib')
 from config import TKN, clogconfirm
 from TheOutNModule import outnmodule, identifycmd
@@ -65,5 +65,5 @@ async def on_message(message):
         url = message.attachments[0].url
         await identifycmd(message, url)
 
-
+keep_alive.keep_alive()
 bot.run(TKN)
